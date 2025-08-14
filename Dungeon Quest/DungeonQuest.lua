@@ -1,3 +1,20 @@
+-- Rayfield --
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+   Name = "Dungeon Quest Hub",
+   Icon = 0,
+   LoadingTitle = "Rayfield Interface Suite",
+   LoadingSubtitle = "by Sirius",
+   Theme = "Default",
+   ToggleUIKeybind = "G",
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "Dungeon Quest Hub",
+      FileName = "Dungeon_Quest"
+   },
+})
 -- Services -- 
 local players = game:GetService("Players")
 local replicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,7 +40,7 @@ local dungeonFinished = false
 local normalOffset = 30
 local bossOffset = 30
 local autoRejoin = true
-local wantedDungeon = "The Underworld"
+local wantedDungeon = "The Canals"
 local wantedDifficulty = "Insane"
 local webhookURL = ""
 local webhookToggle = false
@@ -43,7 +60,7 @@ if workspace:FindFirstChild("LOD") then
         warn("Found High")
         if workspace.LOD.High:FindFirstChild("BlacksmithSword") then
             warn("Found BlacksmithSword, confirmed lobby!")
-            local args = {
+            local args1 = {
                 [1] = {
                     [1] = {
                         [1] = "\1"
@@ -51,38 +68,40 @@ if workspace:FindFirstChild("LOD") then
                     [2] = "5"
                       }
                          }
+            local args2 = {
+                [1] = {
+                    [1] = {
+                        [1] = "\1",
+                        [2] = {
+                            ["\3"] = "select",
+                            ["characterIndex"] = 1
+                        }
+                    },
+                    [2] = "M"
+                }
+            }
             repeat 
-            game:GetService("ReplicatedStorage").dataRemoteEvent:FireServer(unpack(args))
-            task.wait(0.1)
+            game:GetService("ReplicatedStorage").dataRemoteEvent:FireServer(unpack(args1))
+            task.wait(2)
+            if player.leaderstats.Level and player.leaderstats.Level.Value >= 100 then
+                game:GetService("ReplicatedStorage").dataRemoteEvent:FireServer(unpack(args2))
+            end
             until player.Character
+            task.wait(1)
+            Rayfield:Notify({
+                Title = "Found Character, joining selected autofarm dungeon",
+                Content = "Please Wait...",
+                Duration = 5,
+                Image = 0
+            })
         end
     end
 end
 -- Local Player Parts --
 local character = player.character or player.characterAdded:Wait()
 local HRP = character:WaitForChild("HumanoidRootPart")
--- Rayfield --
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-   Name = "Dungeon Quest Hub",
-   Icon = 0,
-   LoadingTitle = "Rayfield Interface Suite",
-   LoadingSubtitle = "by Sirius",
-   Theme = "Default",
-   ToggleUIKeybind = "G",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "Dungeon Quest Hub",
-      FileName = "Dungeon_Quest"
-   },
-})
-
-
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
+-- Modules --
+local WeaponModule = require(player.PlayerGui.UIS.Weapon)
 
 local function getGameState() -- currently returns g or d based on if youre in a lobby or dungeon
     if workspace:FindFirstChild("LOD") then
@@ -182,7 +201,7 @@ local function getPlayerGear()
 end
 
 local function fireAbility(keybind : string)
-    if keybind == "e" then
+    --[[if keybind == "e" then
     vim:SendKeyEvent(true,Enum.KeyCode.E,false,nil)
     task.wait(0.1)
     vim:SendKeyEvent(false,Enum.KeyCode.E,false,nil)
@@ -192,7 +211,10 @@ local function fireAbility(keybind : string)
         vim:SendKeyEvent(false,Enum.KeyCode.Q,false,nil)
     else
         warn("unknown keybind")
-    end
+    end]]
+    local abilityObject = getAbility(keybind)
+    if not abilityObject then return end
+    abilityObject.spellEvent:FireServer()
 
 end
 
@@ -309,8 +331,25 @@ local autoRejoinToggle = tab:CreateToggle({
     end,
 })
 
+local function isGregg()
+local dungeon = workspace:FindFirstChild("dungeon")
+    if not dungeon then return {} end
+    for _,child in pairs(dungeon:GetChildren()) do
+        if child:FindFirstChild("enemyFolder") then
+            if child.enemyFolder:FindFirstChild("Gregg")  then
+                for _,child2 in pairs(child.enemyFolder:GetChildren()) do
+                    if child2.Name == "Gregg" and child2:IsA("Model") then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
 local function getGregg()
-    if greggFound and greggFoundTime then
+    if greggFound and greggFoundTime and isGregg() then
         greggPassed = tick() - greggFoundTime
         if greggPassed > 100 then
                 Rayfield:Notify({
@@ -570,7 +609,10 @@ local function getClosestEnemy(list,position)
 end
 
 local function fireWeapon()
-    return nil
+    if WeaponModule.Init then
+        WeaponModule.Init()
+    end
+    WeaponModule.Attack()
 end
 
 local function click() 
@@ -709,9 +751,9 @@ spawn(function()
                         warn("Teleporting Gregg")
                     end
                 end)
-                task.spawn(click)
-                fireAbility("e")
-                fireAbility("q")
+                fireWeapon()
+                task.spawn(fireAbility, "e")
+                task.spawn(fireAbility, "q")
             elseif boss then
                 task.spawn(function()
                     local bossHRP = boss:FindFirstChild("HumanoidRootPart")
@@ -723,9 +765,9 @@ spawn(function()
                         Teleport(boss:GetPivot(),false)
                     end
                 end)
-                task.spawn(click)
-                fireAbility("e")
-                fireAbility("q")
+                fireWeapon()
+                task.spawn(fireAbility, "e")
+                task.spawn(fireAbility, "q")
             else
                 local enemies = getEnemies()
                 if #enemies == 0 then warn("No Enemies Found!, Room Index Is: "..roomIndex);continue end
@@ -737,9 +779,9 @@ spawn(function()
                     Teleport(closestEnemy:WaitForChild("HumanoidRootPart").CFrame,true)
                     warn("Teleporting Enemy")
                 end)
-                task.spawn(click)
-                fireAbility("e")
-                fireAbility("q")
+                fireWeapon()
+                task.spawn(fireAbility, "e")
+                task.spawn(fireAbility, "q")
             end
         else
             task.wait(1)
@@ -747,6 +789,14 @@ spawn(function()
 
     end
 end)
+
+-- anti kick
+game:GetService("LogService").MessageOut:Connect(function(msg,msgtype)
+    if msgtype == Enum.MessageType.MessageError and msg == "" then
+        game:GetService("TeleportService"):Teleport(2414851778,game:GetService("Players").LocalPlayer)
+    end
+end)
+
 Rayfield:LoadConfiguration()
 --[[notes
 1: there is localplayer.teleporting , might need to set it to true to bypass teleport anti cheat
